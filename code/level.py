@@ -7,6 +7,8 @@ from pytmx.util_pygame import load_pygame
 from support import import_folder
 from transition import Transition
 from soil import SoilLayer
+from sky import Rain
+from random import choice
 
 class Level:
     def __init__(self):
@@ -17,15 +19,24 @@ class Level:
         self.tree_sprites = pygame.sprite.Group()
         self.interaction_sprites = pygame.sprite.Group()
 
+        self.soil_layer = SoilLayer(self.all_sprites)
         self.setup()
         self.overlay = Overlay(self.player)
         self.transition = Transition(self.reset, self.player)
-        self.soil_layer = SoilLayer(self.all_sprites)
+
+        self.rain = Rain(self.all_sprites)
+        self.raining = choice([True, False])
+        self.soil_layer.raining = self.raining
     
     def player_add(self, item):
         self.player.item_inventory[item] += 1
     
     def reset(self):
+        self.soil_layer.remove_water()
+        self.soil_layer.raining = self.raining
+        if self.raining:
+            self.soil_layer.water_all()
+
         for tree in self.tree_sprites.sprites():
             if not tree.alive: continue
             for apple in tree.apple_sprites.sprites(): apple.kill()
@@ -75,7 +86,8 @@ class Level:
                     self.all_sprites,
                     self.collision_sprites,
                     self.tree_sprites,
-                    self.interaction_sprites
+                    self.interaction_sprites,
+                    self.soil_layer
                 )
             if obj.name == 'Bed':
                 Interaction(
@@ -90,9 +102,9 @@ class Level:
         self.display_surface.fill('black')
         self.all_sprites.customize_draw(self.player)
         self.all_sprites.update(dt)
-
         self.overlay.display()
-
+        if self.raining:
+            self.rain.update()
         if self.player.sleep:
             self.transition.play()
 
@@ -112,11 +124,3 @@ class CameraGroup(pygame.sprite.Group):
                 offset_rect = sprite.rect.copy()
                 offset_rect.center -= self.offset
                 self.display_surface.blit(sprite.image, offset_rect)
-
-                # if sprite == player:
-                #     pygame.draw.rect(self.display_surface, 'red', offset_rect, 5)
-                #     hitbox_rect = player.hitbox.copy()
-                #     hitbox_rect.center = offset_rect.center
-                #     pygame.draw.rect(self.display_surface, 'green', hitbox_rect, 5)
-                #     target_pos = offset_rect.center + PLAYER_TOOL_OFFSET[player.status.split('_')[0]]
-                #     pygame.draw.circle(self.display_surface, 'blue', target_pos, 5)
